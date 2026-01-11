@@ -34,7 +34,7 @@ async def clarify_user_request(
 ) -> Command[Literal["write_research_brief", "__end__"]]:
     model = llm.with_structured_output(ClarifyUserRequestOutputSchema)
 
-    result = await llm.ainvoke(
+    result = await model.ainvoke(
         [
             HumanMessage(
                 content=prompts.clarify_prompt.format(
