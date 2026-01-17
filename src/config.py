@@ -14,6 +14,8 @@ class Config(BaseModel):
     max_llm_retries: int = Field(default=3)
     max_supervisor_iterations: int = Field(default=3)
     max_concurrent_research_units: int = Field(default=3)
+    max_crawl_content_length: int = Field(default=50000)
+    summarization_timeout_sec: int = Field(default=60)
 
     @classmethod
     def from_runnable_config(cls, config: RunnableConfig | None = None) -> "Config":
@@ -31,3 +33,6 @@ class Config(BaseModel):
             cfg[key] = value
 
         return cls(**cfg)
+
+
+cfg = Config.from_runnable_config()
