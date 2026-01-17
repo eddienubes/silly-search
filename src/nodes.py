@@ -1,20 +1,14 @@
 from typing import Literal, cast
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import AIMessage, HumanMessage, get_buffer_string
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
-from langchain_litellm import ChatLiteLLM
-from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel, Field
 
-import config
+from config import Config
 import state as research_state
 import prompts
 import utils
-
-llm = init_chat_model(
-    model=config.model,
-    api_key=config.api_key,
-)
 
 
 class ClarifyUserRequestOutputSchema(BaseModel):
@@ -30,8 +24,11 @@ class ClarifyUserRequestOutputSchema(BaseModel):
 
 
 async def clarify_user_request(
-    state: research_state.ResearchInputState,
+    state: research_state.ResearchInputState, config: RunnableConfig
 ) -> Command[Literal["write_research_brief", "__end__"]]:
+    cfg = Config.from_runnable_config(config)
+
+    llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
     model = llm.with_structured_output(ClarifyUserRequestOutputSchema)
 
     result = await model.ainvoke(
@@ -65,8 +62,11 @@ class ResearchBriefOutputSchema(BaseModel):
 
 
 async def write_research_brief(
-    state: research_state.ResearchInputState,
+    state: research_state.ResearchInputState, config: RunnableConfig
 ) -> Command[Literal["__end__"]]:
+    cfg = Config.from_runnable_config(config)
+
+    llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
     model = llm.with_structured_output(ResearchBriefOutputSchema)
 
     result = await model.ainvoke(

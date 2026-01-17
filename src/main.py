@@ -1,6 +1,7 @@
 from langchain_core.messages import HumanMessage, get_buffer_string
 from langgraph.graph.state import StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
+import dotenv
 
 import asyncio
 import state
@@ -8,6 +9,8 @@ import nodes
 
 
 async def main():
+    dotenv.load_dotenv()
+
     graph = StateGraph(state_schema=state.ResearchInputState)
 
     graph = graph.add_node(nodes.clarify_user_request)
