@@ -4,14 +4,14 @@ from langgraph.checkpoint.memory import InMemorySaver
 import dotenv
 
 import asyncio
-import state
+import research_state
 import nodes
 
 
 async def main():
     dotenv.load_dotenv()
 
-    graph = StateGraph(state_schema=state.ResearchInputState)
+    graph = StateGraph(state_schema=research_state.ResearchInputState)
 
     graph = graph.add_node(nodes.clarify_user_request)
     graph = graph.add_node(nodes.write_research_brief)

@@ -13,3 +13,4 @@ class ResearchState(MessagesState):
     supervisor_messages: Annotated[Sequence[BaseMessage], add_messages]
     raw_notes: Annotated[list[str], operator.add]
     final_report: str
+    research_iterations: int
