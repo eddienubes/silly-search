@@ -11,4 +11,5 @@ dependencies = [
     "pydantic>=2.12.5",
     "langgraph>=1.0.5",
     "langchain-xai>=1.2.1",
+    "langgraph-cli[inmem]>=0.4.11",
 ]

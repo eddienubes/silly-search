@@ -1,27 +1,21 @@
 from langchain_core.messages import HumanMessage, get_buffer_string
 from langgraph.graph.state import StateGraph
-from utils import get_readable_date
+from langgraph.checkpoint.memory import InMemorySaver
 
 import asyncio
-import prompts
 import state
 import nodes
 
 
-async def main() -> None:
+async def main():
     graph = StateGraph(state_schema=state.ResearchInputState)
 
-    input = state.ResearchInputState(
-        messages=[HumanMessage(content="What are the best coffee shops in Warsaw?")]
-    )
     graph = graph.add_node(nodes.clarify_user_request)
     graph = graph.add_node(nodes.write_research_brief)
     graph = graph.add_edge("__start__", nodes.clarify_user_request.__name__)
-    compiled_graph = graph.compile()
+    compiled_graph = graph.compile(checkpointer=InMemorySaver())
 
-    result = await compiled_graph.ainvoke(input)
-
-    print(get_buffer_string(result["messages"]))
+    return compiled_graph
 
 
 if __name__ == "__main__":

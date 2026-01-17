@@ -1,0 +1,7 @@
+{
+  "graphs": {
+    "Test": "src/main.py:main"
+  },
+  "dependencies": ["."],
+  "env": ".env"
+}
