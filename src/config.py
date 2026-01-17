@@ -19,13 +19,15 @@ class Config(BaseModel):
     def from_runnable_config(cls, config: RunnableConfig | None = None) -> "Config":
         keys = cls.model_fields.keys()
 
-        cfg: dict[str, typing.Any] = {
-            key: (
-                config.get(key, os.environ.get(key.upper()))
-                if config
-                else os.environ.get(key.upper())
-            )
-            for key in keys
-        }
+        cfg = dict[str, typing.Any]()
+
+        for key in keys:
+            if config and config.get(key):
+                value = config.get(key)
+            elif os.environ.get(key.upper()):
+                value = os.environ.get(key.upper())
+            else:
+                value = cls.model_fields[key].default
+            cfg[key] = value
 
         return cls(**cfg)

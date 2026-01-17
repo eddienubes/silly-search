@@ -15,6 +15,7 @@ import research_state
 import prompts
 import utils
 import typing
+import tools
 
 
 class ClarifyUserRequestOutputSchema(BaseModel):
@@ -71,7 +72,7 @@ class ResearchBriefOutputSchema(BaseModel):
 
 async def write_research_brief(
     state: research_state.ResearchInputState, config: RunnableConfig
-) -> Command[Literal["__end__"]]:
+) -> Command[Literal["supervise"]]:
     cfg = Config.from_runnable_config(config)
 
     llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
@@ -93,17 +94,28 @@ async def write_research_brief(
     result = cast(ResearchBriefOutputSchema, result)
 
     return Command(
-        update={"messages": [AIMessage(content=result.research_brief)]}, goto="__end__"
+        update={
+            "messages": [AIMessage(content=result.research_brief)],
+            "research_brief": result.research_brief,
+        },
+        goto="supervise",
     )
 
 
 async def supervise(
     state: research_state.ResearchState, config: RunnableConfig
-) -> typing.Any:
+) -> Command[Literal["handle_supervisor_tools"]]:
     cfg = Config.from_runnable_config(config)
+    available_tools = [
+        tools.ConductResearchTool,
+        tools.ResearchCompleteTool,
+        tools.think_tool,
+    ]
 
-    llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key).with_retry(
-        stop_after_attempt=cfg.max_llm_retries
+    llm = (
+        init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
+        .bind_tools(available_tools)
+        .with_retry(stop_after_attempt=cfg.max_llm_retries)
     )
 
     brief = state.get("research_brief")
@@ -115,4 +127,22 @@ async def supervise(
 
     messages = [SystemMessage(content=system_prompt), HumanMessage(content=brief)]
 
-    response = await llm
+    response = await llm.ainvoke(messages)
+
+    messages += [response]
+
+    return Command(
+        goto="handle_supervisor_tools",
+        update={
+            "supervisor_messages": messages,
+            "research_iterations": state.get("research_iterations", 0) + 1,
+        },
+    )
+
+
+async def handle_supervisor_tools(
+    state: research_state.ResearchState, config: RunnableConfig
+) -> Command[Literal["__end__"]]:
+        
+
+    return Command(goto="__end__")

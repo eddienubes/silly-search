@@ -15,6 +15,7 @@ async def main():
 
     graph = graph.add_node(nodes.clarify_user_request)
     graph = graph.add_node(nodes.write_research_brief)
+    graph = graph.add_node(nodes.supervise)
     graph = graph.add_edge("__start__", nodes.clarify_user_request.__name__)
     compiled_graph = graph.compile(checkpointer=InMemorySaver())
 
