@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 
 @tool
-async def think_tool(reflection: str) -> str:
+def think(reflection: str) -> str:
     """Tool for strategic reflection on research progress and decision-making.
 
     Use this tool after each search to analyze results and plan next steps systematically.
@@ -21,23 +21,20 @@ async def think_tool(reflection: str) -> str:
     3. Quality evaluation - Do I have sufficient evidence/examples for a good answer?
     4. Strategic decision - Should I continue searching or provide my answer?
 
-    Args:
-        reflection: Your detailed reflection on research progress, findings, gaps, and next steps
-
-    Returns:
-        Confirmation that reflection was recorded for decision-making
+    :param reflection: Your detailed reflection on research progress, findings, gaps, and next steps
+    :type reflection: str
+    :return: Confirmation that reflection was recorded for decision-making
+    :rtype: str
     """
-
     return f"Reflection recorded: {reflection}"
 
 
-class ConductResearchTool(BaseModel):
-    """Call this tool to conduct research on a specific topic."""
+@tool
+async def conduct_research(research_topic: str) -> str:
+    """
+    Call this tool to conduct research on a specific topic.
 
-    research_topic: str = Field(
-        description="The topic to research. Should be a single topic, and should be described in high detail (at least a paragraph)."
-    )
-
-
-class ResearchCompleteTool(BaseModel):
-    """Call this tool to indicate that the research is complete."""
+    :param research_topic: The topic to research. Should be a single topic, and should be described in high detail (at least a paragraph).
+    :type research_topic: str
+    """
+    ...

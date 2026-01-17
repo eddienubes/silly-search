@@ -4,6 +4,8 @@ from langchain_core.messages import (
     AIMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
+    filter_messages,
     get_buffer_string,
 )
 from langchain_core.runnables import RunnableConfig
@@ -11,11 +13,11 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from config import Config
-import research_state
+import state
 import prompts
 import utils
 import typing
-import tools
+from .. import tools
 
 
 class ClarifyUserRequestOutputSchema(BaseModel):
@@ -31,7 +33,7 @@ class ClarifyUserRequestOutputSchema(BaseModel):
 
 
 async def clarify_user_request(
-    state: research_state.ResearchInputState, config: RunnableConfig
+    state: state.SillySearchInput, config: RunnableConfig
 ) -> Command[Literal["write_research_brief", "__end__"]]:
     cfg = Config.from_runnable_config(config)
 
@@ -71,7 +73,7 @@ class ResearchBriefOutputSchema(BaseModel):
 
 
 async def write_research_brief(
-    state: research_state.ResearchInputState, config: RunnableConfig
+    state: state.SillySearchState, config: RunnableConfig
 ) -> Command[Literal["supervise"]]:
     cfg = Config.from_runnable_config(config)
 
@@ -102,14 +104,18 @@ async def write_research_brief(
     )
 
 
+class ResearchCompleteTool(BaseModel):
+    """Call this tool to indicate that the research is complete."""
+
+
 async def supervise(
-    state: research_state.ResearchState, config: RunnableConfig
+    state: state.SupervisorState, config: RunnableConfig
 ) -> Command[Literal["handle_supervisor_tools"]]:
     cfg = Config.from_runnable_config(config)
     available_tools = [
-        tools.ConductResearchTool,
-        tools.ResearchCompleteTool,
-        tools.think_tool,
+        tools.ConductResearchTool,  # ??
+        ResearchCompleteTool,
+        tools.think,
     ]
 
     llm = (
@@ -121,7 +127,7 @@ async def supervise(
     brief = state.get("research_brief")
     system_prompt = prompts.supervisor_prompt.format(
         date=utils.get_readable_date(),
-        max_researcher_iterations=cfg.max_researcher_iterations,
+        max_researcher_iterations=cfg.max_supervisor_iterations,
         max_concurrent_research_units=cfg.max_concurrent_research_units,
     )
 
@@ -135,14 +141,51 @@ async def supervise(
         goto="handle_supervisor_tools",
         update={
             "supervisor_messages": messages,
-            "research_iterations": state.get("research_iterations", 0) + 1,
+            "supervisor_iterations": state.get("supervisor_iterations", 0) + 1,
         },
     )
 
 
 async def handle_supervisor_tools(
-    state: research_state.ResearchState, config: RunnableConfig
+    state: state.SupervisorState, config: RunnableConfig
 ) -> Command[Literal["__end__"]]:
-        
+    cfg = Config.from_runnable_config(config)
+
+    latest_message = state.get("supervisor_messages")[-1]
+    latest_message = cast(AIMessage, latest_message)
+
+    has_exceeded_supervisor_iterations = (
+        state.get("supervisor_iterations", 0) > cfg.max_supervisor_iterations
+    )
+    has_no_tool_calls = not latest_message.tool_calls
+    is_research_complete = any(
+        call["name"] == ResearchCompleteTool.__name__
+        for call in latest_message.tool_calls
+    )
+
+    if is_research_complete or has_exceeded_supervisor_iterations or has_no_tool_calls:
+        notes = [
+            call.content
+            for call in filter_messages(
+                state.get("supervisor_messages", []), include_types="tool"
+            )
+        ]
+        return Command(goto="__end__", update={"notes": notes})
+
+    think_tool_calls = [
+        call for call in latest_message.tool_calls if call["name"] == tools.think.name
+    ]
+
+    messages = []
+
+    for call in think_tool_calls:
+        content = tools.think.invoke(**call["args"])
+        messages.append(ToolMessage(content=content, name=call["name"], id=call["id"]))
+
+    researcher_tool_calls = [
+        call for call in latest_message.tool_calls if call["name"] == tools.think.name
+    ]
+
+    # if researcher_tool_calls:
 
     return Command(goto="__end__")

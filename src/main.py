@@ -4,19 +4,19 @@ from langgraph.checkpoint.memory import InMemorySaver
 import dotenv
 
 import asyncio
-import research_state
-import nodes
+import state
+import supervisor.superviser as superviser
 
 
 async def main():
     dotenv.load_dotenv()
 
-    graph = StateGraph(state_schema=research_state.ResearchInputState)
+    graph = StateGraph(state_schema=state.SillySearchInput)
 
-    graph = graph.add_node(nodes.clarify_user_request)
-    graph = graph.add_node(nodes.write_research_brief)
-    graph = graph.add_node(nodes.supervise)
-    graph = graph.add_edge("__start__", nodes.clarify_user_request.__name__)
+    graph = graph.add_node(superviser.clarify_user_request)
+    graph = graph.add_node(superviser.write_research_brief)
+    graph = graph.add_node(superviser.supervise)
+    graph = graph.add_edge("__start__", superviser.clarify_user_request.__name__)
     compiled_graph = graph.compile(checkpointer=InMemorySaver())
 
     return compiled_graph
