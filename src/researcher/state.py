@@ -7,7 +7,7 @@ from langgraph.graph import add_messages
 
 class ResearcherState(TypedDict):
     researcher_messages: Annotated[list[MessageLikeRepresentation], add_messages]
-    research_brief: str
-    notes: Annotated[list[str], operator.add]
-    research_iterations: int
+    research_topic: str
+    researcher_iterations: int
     raw_notes: Annotated[list[str], operator.add]
+    compressed_research: str

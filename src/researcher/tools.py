@@ -27,6 +27,14 @@ async def search(
         Literal["general", "news", "finance"], InjectedToolArg
     ] = "general",
 ) -> str:
+    """
+    Fetch and summarize search results from Tavily search API.
+
+    :param queries: List of search queries to execute
+    :type queries: list[str]
+    :return: Formatted string containing summarized search results
+    :rtype: str
+    """
     # TODO: Proper DI via Context
     # https://docs.langchain.com/oss/python/langchain/runtime
     tavily_client = TavilyClient(api_key=cfg.tavily_api_key)
@@ -52,6 +60,10 @@ async def search(
         }
         for url, result, summary in zip(results.keys(), results.values(), summaries)
     }
+
+    if not summarized_results:
+        return "No valid search results found. Please try different search queries or use a different search API."
+
     return json.dumps(summarized_results, separators=(",", ":"))
 
 

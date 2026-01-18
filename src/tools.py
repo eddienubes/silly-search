@@ -1,9 +1,9 @@
 from langchain_core.tools import tool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 @tool
-def think(reflection: str) -> str:
+async def think(reflection: str) -> str:
     """Tool for strategic reflection on research progress and decision-making.
 
     Use this tool after each search to analyze results and plan next steps systematically.
@@ -29,12 +29,5 @@ def think(reflection: str) -> str:
     return f"Reflection recorded: {reflection}"
 
 
-@tool
-async def conduct_research(research_topic: str) -> str:
-    """
-    Call this tool to conduct research on a specific topic.
-
-    :param research_topic: The topic to research. Should be a single topic, and should be described in high detail (at least a paragraph).
-    :type research_topic: str
-    """
-    ...
+class ResearchCompleteTool(BaseModel):
+    """Call this tool to indicate that the research is complete."""

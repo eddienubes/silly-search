@@ -13,8 +13,9 @@ class Config(BaseModel):
 
     max_llm_retries: int = Field(default=3)
     max_supervisor_iterations: int = Field(default=3)
-    max_concurrent_research_units: int = Field(default=3)
+    max_concurrent_researchers: int = Field(default=3)
     max_crawl_content_length: int = Field(default=50000)
+    max_researcher_iterations: int = Field(default=10)
     summarization_timeout_sec: int = Field(default=60)
 
     @classmethod
