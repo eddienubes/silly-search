@@ -9,18 +9,18 @@ from langchain_core.messages import (
     get_buffer_string,
 )
 from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 from langgraph.runtime import Runtime
 
 from config import cfg
-from ..ctx import Context
-import state
+import supervisor.supervisor_state as supervisor_state
 import prompts
 import utils
 import typing
-from .. import tools as common_tools
-from . import tools
+import common_tools
+import supervisor.supervisor_tools as supervisor_tools
 
 
 class ClarifyUserRequestOutputSchema(BaseModel):
@@ -36,7 +36,7 @@ class ClarifyUserRequestOutputSchema(BaseModel):
 
 
 async def clarify_user_request(
-    state: state.SillySearchInput,
+    state: supervisor_state.SillySearchState,
 ) -> Command[typing.Literal["write_research_brief", "__end__"]]:
     llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
     model = llm.with_structured_output(ClarifyUserRequestOutputSchema).with_retry(
@@ -74,7 +74,7 @@ class ResearchBriefOutputSchema(BaseModel):
 
 
 async def write_research_brief(
-    state: state.SillySearchState, config: RunnableConfig
+    state: supervisor_state.SillySearchState, config: RunnableConfig
 ) -> Command[typing.Literal["supervise"]]:
     llm = init_chat_model(model=cfg.xai_model_name, api_key=cfg.xai_api_key)
     model = llm.with_structured_output(ResearchBriefOutputSchema).with_retry(
@@ -104,12 +104,12 @@ async def write_research_brief(
 
 
 async def supervise(
-    state: state.SupervisorState, runtime: Runtime
+    state: supervisor_state.SillySearchState, runtime: Runtime
 ) -> Command[typing.Literal["handle_supervisor_tools"]]:
     available_tools = [
         common_tools.ResearchCompleteTool,
         common_tools.think,
-        tools.invoke_researcher,
+        supervisor_tools.invoke_researcher,
     ]
 
     llm = (
@@ -125,7 +125,13 @@ async def supervise(
         max_concurrent_research_units=cfg.max_concurrent_researchers,
     )
 
-    messages = [SystemMessage(content=system_prompt), HumanMessage(content=brief)]
+    messages = []
+    supervisor_messages = state.get("supervisor_messages")
+
+    if supervisor_messages:
+        messages = supervisor_messages
+    else:
+        messages = [SystemMessage(content=system_prompt), HumanMessage(content=brief)]
 
     response = await llm.ainvoke(messages)
 
@@ -141,8 +147,8 @@ async def supervise(
 
 
 async def handle_supervisor_tools(
-    state: state.SupervisorState, runtime: Runtime[Context]
-) -> Command[typing.Literal["__end__", "supervisor"]]:
+    state: supervisor_state.SillySearchState, researcher: CompiledStateGraph
+) -> Command[typing.Literal["__end__", "supervise"]]:
     latest_message = state.get("supervisor_messages")[-1]
     latest_message = typing.cast(AIMessage, latest_message)
 
@@ -173,13 +179,13 @@ async def handle_supervisor_tools(
     messages = []
 
     for call in think_tool_calls:
-        content = await common_tools.think.ainvoke(**call["args"])
-        messages.append(ToolMessage(content=content, name=call["name"], id=call["id"]))
+        content = await common_tools.think.ainvoke(call)
+        messages.append(ToolMessage(content=content, tool_call_id=call["id"]))
 
     researcher_tool_calls = [
         call
         for call in latest_message.tool_calls
-        if call["name"] == tools.invoke_researcher.name
+        if call["name"] == supervisor_tools.invoke_researcher.name
     ]
 
     if researcher_tool_calls:
@@ -189,7 +195,9 @@ async def handle_supervisor_tools(
         overflow_tool_calls = researcher_tool_calls[cfg.max_concurrent_researchers :]
 
         researcher_tasks = [
-            tools.invoke_researcher.ainvoke(**call["args"])
+            supervisor_tools.invoke_researcher.ainvoke(
+                {**call["args"], "researcher": researcher}
+            )
             for call in researcher_tool_calls
         ]
 
@@ -206,6 +214,6 @@ async def handle_supervisor_tools(
         for call, hit in zip(allowed_calls_tool_calls, search_hits):
             messages.append(ToolMessage(content=hit, tool_call_id=call["id"]))
 
-        return Command(goto="supervisor", update={"supervisor_messages": messages})
+        return Command(goto="supervise", update={"supervisor_messages": messages})
 
-    return Command(goto="__end__")
+    return Command(goto="supervise", update={"supervisor_messages": messages})

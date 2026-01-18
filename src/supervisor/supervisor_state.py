@@ -5,12 +5,8 @@ from langchain_core.messages import MessageLikeRepresentation
 from langgraph.graph import MessagesState, add_messages
 
 
-class SillySearchInput(MessagesState):
-    pass
-
-
 class SillySearchState(MessagesState):
-    supervisor_messages: Annotated[list[MessageLikeRepresentation], operator.add]
+    supervisor_messages: Annotated[list[MessageLikeRepresentation], add_messages]
     research_brief: str
     raw_notes: Annotated[list[str], operator.add]
     notes: Annotated[list[str], operator.add]
